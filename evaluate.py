@@ -225,7 +225,7 @@ def evaluate_model(model_path, lang_codes=['de', 'fr', 'it'], test_data=None, de
         
         # Prepare sources and references
         sources = list(test_df['source'])
-        references = [[ref] for ref in test_df['target']]  # Format references as list of lists
+        references = test_df['target'].tolist()
         
         # Generate translations
         translations = []
@@ -248,11 +248,10 @@ def evaluate_model(model_path, lang_codes=['de', 'fr', 'it'], test_data=None, de
             logger.info(f"DEBUG - Sample translations for {lang.upper()}:")
             for i in range(min(3, len(translations))):
                 logger.info(f"  Source: {sources[i]}")
-                logger.info(f"  Reference: {references[i][0]}")
+                logger.info(f"  Reference: {references[i]}")
                 logger.info(f"  Translation: {translations[i]}")
-            
-            # Convert references to required format [[ref1], [ref2], ...]
-            bleu_score = bleu.corpus_score(translations, [[ref[0]] for ref in references]).score
+
+            bleu_score = bleu.corpus_score(translations, [references]).score
         except Exception as e:
             logger.error(f"Error calculating BLEU score: {e}")
             logger.error(f"References sample: {references[:3]}")
