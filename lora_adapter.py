@@ -52,13 +52,11 @@ class LoraAdapter:
         self.lora_dropout = lora_dropout
         
         if device is None:
-            # Prefer CUDA, then MPS, else CPU
-            if torch.cuda.is_available():
-                self.device = "cuda"
-            elif torch.backends.mps.is_available():
+            # Use only MPS
+            if torch.backends.mps.is_available():
                 self.device = "mps"
             else:
-                self.device = "cpu"
+                raise RuntimeError("MPS device is not available")
         else:
             self.device = device
         
@@ -66,14 +64,19 @@ class LoraAdapter:
         self.tokenizer = MarianTokenizer.from_pretrained(base_model_name)
         self.base_model = MarianMTModel.from_pretrained(base_model_name).to(self.device)
         
-        # Configure LoRA
+        # Determine LoRA target modules dynamically (all q_proj and v_proj layers)
+        model_keys = list(self.base_model.state_dict().keys())
+        q_modules = [key.replace('.weight', '') for key in model_keys if 'q_proj.weight' in key]
+        v_modules = [key.replace('.weight', '') for key in model_keys if 'v_proj.weight' in key]
+        target_modules = q_modules + v_modules
+        # Configure LoRA with dynamic target modules
         self.peft_config = LoraConfig(
             task_type=TaskType.SEQ_2_SEQ_LM,
             inference_mode=False,
             r=lora_rank,
             lora_alpha=lora_alpha,
             lora_dropout=lora_dropout,
-            target_modules=["q_proj", "k_proj", "v_proj", "out_proj"],
+            target_modules=target_modules,
         )
         
         # Get PEFT model
@@ -117,13 +120,11 @@ class LoraAdapter:
             tuple: (model, tokenizer) - The adapted model and tokenizer.
         """
         if device is None:
-            # Prefer CUDA, then MPS, else CPU
-            if torch.cuda.is_available():
-                device = "cuda"
-            elif torch.backends.mps.is_available():
+            # Use only MPS
+            if torch.backends.mps.is_available():
                 device = "mps"
             else:
-                device = "cpu"
+                raise RuntimeError("MPS device is not available")
         
         # Load tokenizer and base model
         tokenizer = MarianTokenizer.from_pretrained(base_model_name)

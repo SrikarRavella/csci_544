@@ -47,13 +47,11 @@ class MultilingualTranslationDistiller:
         self.alpha = alpha
         
         if device is None:
-            # Prefer CUDA, then MPS, else CPU
-            if torch.cuda.is_available():
-                self.device = "cuda"
-            elif torch.backends.mps.is_available():
+            # Use only MPS
+            if torch.backends.mps.is_available():
                 self.device = "mps"
             else:
-                self.device = "cpu"
+                raise RuntimeError("MPS device is not available")
         else:
             self.device = device
         
@@ -70,14 +68,7 @@ class MultilingualTranslationDistiller:
         # Initialize student model
         self.student_model = self._initialize_student_model(student_config)
         
-        # Resize token embeddings, falling back to CPU for MPS unsupported ops
-        if self.device == "mps":
-            # Temporarily move to CPU for resizing
-            self.student_model.to("cpu")
-            self.student_model.resize_token_embeddings(len(self.tokenizer))
-            # Move back to original device
-            self.student_model.to("mps")
-        else:
+        # Resize token embeddings
             self.student_model.resize_token_embeddings(len(self.tokenizer))
         
         print(f"Initialized distillation with {len(self.teacher_models)} teacher models")
